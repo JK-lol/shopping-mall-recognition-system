@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Classification API</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="navbar">
+        <div class="logo">
+			<a href="index.html"><img src="shopping-mall.png" alt="Shopping-Mall">
+                <span>&nbsp&nbspMALL MAJESTRY MATCHER&nbsp&nbsp</span>
+                <img src="king.png" alt="Majestry">
+            </a>
+		</div>
+    </div>
+
+    <form id="imageForm" enctype="multipart/form-data">
+        <table class="table">
+            <tr>
+                <th>
+                    <div class="arrow-container">
+                        <div class="arrow-down"></div>
+                        <p class="animated-text">&nbsp&nbspYour Image will be previewed here&nbsp&nbsp</p>
+                        <div class="arrow-down"></div>
+                    </div>
+                </th>
+                <td></td>
+            </tr>
+            <tr style="height: 330px">
+                <th>
+                    <div class="preview-space">
+                        <img id="imagePreview" src="#" alt="Image Preview" style="max-width: 300px; max-height: 300px; display: none;">
+                    </div>
+                </th>
+                <th>
+                    <div class="predict-space">
+                        Will Mall Majestry Matcher classify your image correctly?<br>
+                        <div class="sub-predict-space">MAHKOTA PARADE</div>
+                        OR
+                        <div class="sub-predict-space">DATARAN PAHLAWAN</div>
+                        OR
+                        <div class="sub-predict-space">HATTEN SQUARE</div>
+                    </div>
+                    <button id="myBtn">Predict</button>
+                </th>
+            </tr>
+            <tr>
+                <th>
+                    <input type="file" id="imageInput" name="image" accept=".png, .jpg, .jpeg" required>
+                </th>
+                <th>
+                    <br>
+                    <p class="file-format">Kindly ensure that your image uploaded is in PNG, JPG or JPEG format.</p>
+                    <div id="myModal" class="modal">
+                        <div class="modal-content">
+                            <div id="predictionResult"></div>
+                            <p>Would you like to update the correct result to our server?</p>
+                            <div id="buttonContainer"></div><br>
+                            <div id="labelSelectContainer" style="display: none;">
+                                <hr><br>
+                                <label for="labelSelect">The Correct Label is:&nbsp&nbsp</label>
+                                <select id="labelSelect">
+                                    <option value="" disabled selected>Please Select</option>
+                                    <option value="Mahkota Parade">Mahkota Parade</option>
+                                    <option value="Hattens Square">Hattens Square</option>
+                                    <option value="Dataran Pahlawan">Dataran Pahlawan</option>
+                                </select>
+                                <br>
+                                <button type="button" onclick="uploadPrediction()" id="uploadButton" style="display: none;">Upload Prediction</button>
+                            </div>
+                        </div>
+                    </div>
+                </th>
+            </tr>
+        </table>
+    </form>
+
+    <script>
+        var predictedLabel = "";
+        var selectedImage;
+
+        // Function to handle the form submission
+        function predictImage() {
+            var formData = new FormData($("#imageForm")[0]);
+            selectedImage = $("#imageInput")[0].files[0];
+
+            // Sending the image to the API for prediction
+            $.ajax({
+                url: "http://localhost:8000/predictImage",
+                type: "POST",
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function (response) {
+                    // Displaying the prediction result
+                    $("#predictionResult").text("Our Predicted Label: " + response.Label);
+                    predictedLabel = response.Label;
+                    modal.style.display = "block";
+                    // $("#imageForm button").hide();
+                    
+                    // Create the "Yes" button
+                    var yesButton = document.createElement("button");
+                    yesButton.textContent = "Yes";
+                    yesButton.id = "yesButton";
+                    yesButton.classList.add("yes-button"); // CSS for Yes button
+                    // Add event listener for button click
+                    yesButton.addEventListener("click", function(){
+                        event.preventDefault();
+                        modal.style.display = "block";
+                        $("#labelSelectContainer").show();
+                        labelSelectContainer.style.display = "block";
+                        $("#uploadButton").show();
+                    });
+
+                    // Create the "No" button
+                    var noButton = document.createElement("button");
+                    noButton.textContent = "No";
+                    noButton.id = "noButton";
+                    noButton.classList.add("no-button"); // CSS for No button
+                    // Add event listener for button click
+                    noButton.addEventListener("click", function() {
+                        $("#imageForm")[0].reset(); // Reset the form
+                        location.reload(); // Reload the page
+                    });
+
+                    // Append the buttons to the buttonContainer
+                    var buttonContainer = document.getElementById("buttonContainer");
+                    buttonContainer.appendChild(yesButton);
+                    buttonContainer.appendChild(noButton);
+                },
+                error: function (xhr, status, error) {
+                    console.log("Error:", error);
+                }
+            });
+        }
+
+        function uploadPrediction() {
+            var selectedLabel = $("#labelSelect").val();
+            var allowedLabels = ["Mahkota Parade", "Hattens Square", "Dataran Pahlawan"];
+
+            if (allowedLabels.includes(selectedLabel)) {
+                var predictionData = {
+                    image: selectedImage,
+                    predicted_label: predictedLabel,
+                    user_label: selectedLabel,
+                };
+
+                if (predictedLabel !== selectedLabel) {
+                    alert("Apologizes for the wrong prediction! Our Model sucks! \uD83D\uDE03");
+                }
+                else{
+                    alert("Mall Majestry Matcher is happy to serve you!")
+                }
+
+                var formData = new FormData();
+                formData.append("image", selectedImage);
+
+                fetch(`http://localhost:8000/storePrediction?user_label=${selectedLabel}&predicted_label=${predictedLabel}`, {
+                    method: "POST",
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => console.log(data));
+
+                // Reset the form and hide the upload button
+                $("#imageForm")[0].reset();
+                $("#uploadButton").hide();
+                location.reload();
+
+                // Reset the image preview
+                $("#imagePreview").attr("src", "#").hide();
+
+                // Reset the predicted label and result text
+                predictedLabel = "";
+                $("#predictionResult").empty();
+                $('#myModal').hide();
+            } else {
+                alert("Invalid label selected!");
+            }
+        }
+
+
+        // Function to handle image preview
+        $("#imageInput").change(function () {
+            var input = this;
+
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+
+                reader.onload = function (e) {
+                    $("#imagePreview")
+                        .attr("src", e.target.result)
+                        .show();
+                };
+
+                reader.readAsDataURL(input.files[0]);
+            }
+        });
+
+        // Modal window to display prediction result 
+        var modal = document.getElementById("myModal");
+
+        // Get the button that opens the modal
+        var btn = document.getElementById("myBtn");
+
+        // Get the <span> element that closes the modal
+        var span = document.getElementsByClassName("close")[0];
+
+        // When the user clicks on the button, open the modal
+        btn.onclick = function(event) {
+            event.preventDefault();
+            predictImage();
+            // modal.style.display = "block";
+        }
+    </script>
+</body>
+</html>
